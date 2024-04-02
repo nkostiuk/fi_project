@@ -12,8 +12,7 @@ Comparer les inégalités en France :
 - Focus sur une grande ville 
 
 ## Source de données  
-Données : INSEE
-
+Données : INSEE ([insee.fr/fr/statistiques](https://www.insee.fr/fr/statistiques))
 
 ## Description des tables 
 
