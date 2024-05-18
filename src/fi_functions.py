@@ -151,38 +151,89 @@ def add_leading_zeros(df, column_name, desired_length):
     # Add leading zeros to match the desired length
     df[column_name] = df[column_name].str.zfill(desired_length)
 
+## Plot a map with clustered data
+import folium
+import json
 
-from sklearn.preprocessing import StandardScaler
-
-def standardize_numerical_columns(df, columns):
+def plot_cluster_map(data, geojson_path, cluster_column, cluster_colors, legend_html, popup_html_func, cluster_means):
     """
-    Standardizes specified numerical columns in the DataFrame using StandardScaler.
+    Plot a map with clustered data.
 
     Parameters:
-        df (DataFrame): The DataFrame containing numerical columns to be standardized.
-        columns (list): A list of numerical column names to be standardized.
+    - data: DataFrame containing the data with cluster information.
+    - geojson_path: Path to the GeoJSON file for map boundaries.
+    - cluster_column: Name of the column in the DataFrame containing cluster information.
+    - cluster_colors: Dictionary mapping cluster numbers to colors.
+    - legend_html: HTML code for the legend to be displayed on the map.
+    - popup_html_func: Function to generate HTML content for popup windows.
 
     Returns:
-        DataFrame: The DataFrame with specified numerical columns standardized.
+    - m: Folium map object.
     """
-    # Initialize StandardScaler
-    scaler = StandardScaler()
+    # Initialize map
+    m = folium.Map(location=[46.2276, 2.2137], zoom_start=6)
+    
+    # Load GeoJSON data
+    with open(geojson_path, 'r') as f:
+        geojson_data = json.load(f)
 
-    # Create a copy of the DataFrame to avoid modifying the original DataFrame
-    df_standardized = df.copy()
+    # Iterate through each feature of the GeoJSON and add it to the map
+    for feature in geojson_data['features']:
+        dept_code = feature['properties']['code'] 
+        matching_row = data[data['DEPT_code'] == dept_code]
+        if not matching_row.empty:
+            cluster_num = matching_row.iloc[0][cluster_column]
+            dept_name = matching_row.iloc[0]['DEPT_name']
+            folium.GeoJson(
+                feature,
+                style_function=lambda x, c=cluster_num: {
+                    'fillColor': cluster_colors[c],
+                    'color': 'black',
+                    'weight': 1,
+                    'fillOpacity': 0.7
+                },
+                popup=folium.Popup(popup_html_func(dept_name, cluster_num, cluster_means), max_width=300)
+            ).add_to(m)
 
-    # Standardize specified numerical columns
-    df_standardized[columns] = scaler.fit_transform(df_standardized[columns])
+    # Add legend
+    m.get_root().html.add_child(folium.Element(legend_html))
+    
+    return m
 
-    return df_standardized
+## Generate HTML content for popup windows on the map
+def generate_popup(dept_name, cluster_num, df):
+    """
+    Generate HTML content for popup windows on the map.
 
-# Example usage:
-# Specify the columns to be standardized
-# columns_to_standardize = ['Total_Salaries', 'mean_net_salary_hour_overall', ...]  
-# df_standardized = standardize_numerical_columns(df, columns_to_standardize)
+    Parameters:
+    - dept_name: Name of the department.
+    - cluster_num: Cluster number.
+    - df: DataFrame containing the data.
+
+    Returns:
+    - html: HTML content for the popup window.
+    """
+    
+    # Extract data for the specified cluster number
+    data = df.loc[cluster_num]
+
+    # Generate HTML content for popup window
+    html = f'''
+    <strong>{dept_name} - Cluster {cluster_num}</strong><br>
+    Total Salaries: {data['Total_Salaries']}<br>
+    Micro Enterprises: {data['nb_micro_entreprises']}<br>
+    Mean Salary Overall: {data['mean_net_salary_hour_overall']}<br>
+    Mean Salary Male: {data['mean_net_salary_hour_male']}<br>
+    Mean Salary Female: {data['mean_net_salary_hour_female']}<br>
+    Mean Salary Executives: {data['mean_net_salary_hour_executives']}<br>
+    Mean Salary Female Executives: {data['mean_net_salary_hour_female_executives']}<br>
+    Mean Salary Male Executives: {data['mean_net_salary_hour_male_executives']}<br>
+    ... (add more info here) ...
+    '''
+    return html
 
 
-#################################################FONCTION CALCUL DISTANCE ENTRE 2 VILLES A PARTIR DES COORDONNEES GPS#########################################
+###########FONCTION CALCUL DISTANCE ENTRE 2 VILLES A PARTIR DES COORDONNEES GPS################
 #variables = (latitude1, longitude1, latitude2, longitude2, unit = 'miles' ou 'km')
 from numpy import sin, cos, arccos, pi, round 
 def rad2deg(radians): 
